@@ -1,55 +1,48 @@
-# Welcome to Secure Code Game Season-1/Level-3!
-
-# You know how to play by now, good luck!
-
 import os
-from flask import Flask, request
 
-### Unrelated to the exercise -- Starts here -- Please ignore
-app = Flask(__name__)
-@app.route("/")
-def source():
-    TaxPayer('foo', 'bar').get_tax_form_attachment(request.args["input"])
-    TaxPayer('foo', 'bar').get_prof_picture(request.args["input"])
-### Unrelated to the exercise -- Ends here -- Please ignore
+def safe_path(path):
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    filepath = os.path.normpath(os.path.join(base_dir, path))
+    if base_dir != os.path.commonpath([base_dir, filepath]):
+        return None
+    return filepath
 
-class TaxPayer:
+# Solution explanation
 
-    def __init__(self, username, password):
-        self.username = username
-        self.password = password
-        self.prof_picture = None
-        self.tax_form_attachment = None
+# Path Traversal vulnerability
 
-    # returns the path of an optional profile picture that users can set
-    def get_prof_picture(self, path=None):
-        # setting a profile picture is optional
-        if not path:
-            pass
+# A form of injection attacks where attackers escape the intended target
+# directory and manage to access parent directories.
+# In the functions get_prof_picture and get_tax_form_attachment, the path
+# isn't sanitized, and a user can pass invalid paths (with ../).
 
-        # defends against path traversal attacks
-        if path.startswith('/') or path.startswith('..'):
-            return None
+# Input validation seems like a good solution at first, by limiting the
+# character set allowed to alphanumeric, but sometimes this approach is
+# too restrictive. We might need to handle arbitrary filenames or the
+# code needs to run cross-platform and account for filesystem differences
+# between Windows, Macs and *nix.
 
-        # builds path
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        prof_picture_path = os.path.normpath(os.path.join(base_dir, path))
+# Proposed fix:
+# While you could improve the string-based tests by checking for invalid
+# paths (those with dot-dot etc), this approach can be risky since the
+# spectrum of inputs can be infinite and attackers get really creative.
 
-        with open(prof_picture_path, 'rb') as pic:
-            picture = bytearray(pic.read())
+# Instead, a straightforward solution is to rely on the os.path
+# library to derive the base directory instead of trusting user input.
+# The user input can be later appended to the safely generated base
+# directory so that the absolute filepath is normalized.
 
-        # assume that image is returned on screen after this
-        return prof_picture_path
+# Finally, add a check on the longest common subpath between the
+# base directory and the normalized filepath to make sure that no
+# traversal is about to happen and that the final path ends up in the
+# intended directory.
 
-    # returns the path of an attached tax form that every user should submit
-    def get_tax_form_attachment(self, path=None):
-        tax_data = None
+# The GitHub Security Lab covered this flaw in one episode of Security
+# Bites, its series on secure programming: https://youtu.be/sQGxdwRePh8
 
-        if not path:
-            raise Exception("Error: Tax form is required for all users")
+# We also covered this flaw in a blog post about OWASP's Top 10 proactive controls:
+# https://github.blog/2021-12-06-write-more-secure-code-owasp-top-10-proactive-controls/
 
-        with open(path, 'rb') as form:
-            tax_data = bytearray(form.read())
 
-        # assume that tax data is returned on screen after this
-        return path
+# Contribute new levels to the game in 3 simple steps!
+# Read our Contribution Guideline at github.com/skills/secure-code-game/blob/main/CONTRIBUTING.md
